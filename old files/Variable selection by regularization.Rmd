@@ -1,0 +1,63 @@
+---
+title: "Variable selection by regularization for the ML project"
+author: "Soomin Park"
+date: "August 22, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(ggplot2)
+library(dplyr)
+
+dt_after = read.csv("./data_after_preproc.csv")
+head(dt_after)
+
+train = dt_after[!is.na(dt_after$SalePrice), ]
+train_X = train[, !(colnames(train) %in% c("Id", "SalePrice"))]
+train_y = train$SalePrice
+
+grid = 10^seq(5, -2, length = 100)
+plot(grid)
+
+library(caret)
+set.seed(0)
+train_control = trainControl(method = 'cv', number=10)
+tune.grid = expand.grid(lambda = grid, alpha=c(0))
+ridge.caret = train(train_X, train_y,
+                    method = 'glmnet',
+                    trControl = train_control, tuneGrid = tune.grid, standardize=T)
+
+### Plot the tuning object:
+plot(ridge.caret, xTrans=log)
+
+### Predicting with the final model
+#pred = predict.train(ridge.caret, newdata = x[test,])
+#mean((pred - y[test])^2)
+imp <- varImp(ridge.caret, scale=FALSE)
+imp$importance
+plot(imp, top = 30)
+
+
+# Lasso
+options(scipen=999)
+set.seed(0)
+train_control = trainControl(method = 'cv', number=10)
+tune.grid = expand.grid(lambda = grid, alpha=1)
+lasso.caret =  train(train_X, train_y,
+                    method = 'glmnet', 
+                    trControl = train_control, tuneGrid = tune.grid, 
+                    standardize = TRUE)
+plot(lasso.caret, xTrans=log)
+lasso.caret$bestTune$lambda # the best lambda
+lasso.caret$finalModel$beta 
+imp <- varImp(lasso.caret, scale=FALSE)
+importance = imp$importance
+imp$importance[sort(names(imp$importance$Overall), decreasing = T)]
+round(importance[order(importance[, 1], decreasing = T), , drop=F], 2)
+plot(imp, top = 30)
+
+```
